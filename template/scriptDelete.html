@@ -1,0 +1,46 @@
+{{ define "scriptjs" }}
+<script>
+
+
+// script.js
+document.addEventListener('DOMContentLoaded', function () {
+	const pipelineForm = document.getElementById('pipeline-form');
+	const pipelineNameInput = document.getElementById('pipeline-name');
+	const resultDiv = document.getElementById('result'); // Reference to the result div
+
+	pipelineForm.addEventListener('submit', async function (e) {
+		e.preventDefault();
+
+		// Get input values
+		const name = pipelineNameInput.value;
+
+		try {
+			// Parse JSON input
+
+
+			// Create HTTP request using fetch
+			const response = await fetch(`http://0.0.0.0:8080/api/delete?name=${encodeURIComponent(name)}`, {
+				method: 'PUT',
+			});
+
+			// Handle response
+			if (response.ok) {
+				const responseData = await response.text(); // Get response as text
+				resultDiv.textContent = 'Request successful: ' + responseData;
+				  resultDiv.classList.add("alert", "alert-success")
+			} else {
+				resultDiv.textContent = 'Request failed with status ' + response.status;
+				  resultDiv.classList.add("alert", "alert-danger")
+				// Handle error response
+			}
+		} catch (error) {
+			resultDiv.textContent = 'Invalid JSON input: ' + error.message;
+			resultDiv.classList.add("alert", "alert-danger")
+    }
+		// Clear form inputs
+		pipelineNameInput.value = '';
+	});
+});
+
+</script>
+{{ end }}

@@ -1,0 +1,68 @@
+{{ define "scriptjs" }}
+<script>
+
+function isValidJSON(jsonString) {
+    try {
+        JSON.parse(jsonString);
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+// script.js
+document.addEventListener('DOMContentLoaded', function () {
+	const pipelineForm = document.getElementById('pipeline-form');
+	const pipelineNameInput = document.getElementById('pipeline-name');
+	const pipelineJsonInput = document.getElementById('pipeline-json');
+	const resultDiv = document.getElementById('result'); // Reference to the result div
+
+	pipelineForm.addEventListener('submit', async function (e) {
+		e.preventDefault();
+
+		// Get input values
+		const name = pipelineNameInput.value;
+		const json = pipelineJsonInput.value;
+
+		try {
+			// Parse JSON input
+			let parsedJson;
+				if (isValidJSON(json)) {
+					parsedJson = JSON.parse(json);
+				} else {
+					resultDiv.textContent= 'Invalid JSON.';
+				  resultDiv.style.backgroundColor = "red";
+				}
+
+			// Create HTTP request using fetch
+			const response = await fetch(`http://0.0.0.0:8080/api/create?name=${encodeURIComponent(name)}`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(parsedJson)
+			});
+
+			// Handle response
+			if (response.ok) {
+				const responseData = await response.text(); // Get response as text
+				resultDiv.textContent = 'Request successful';
+				resultDiv.classList.add("alert", "alert-success")
+				//   resultDiv.style.backgroundColor = "green";
+			} else {
+				resultDiv.textContent = 'Request failed with status ' + response.status;
+				resultDiv.classList.add("alert", "alert-danger")
+				// Handle error response
+			}
+		} catch (error) {
+			resultDiv.textContent = 'Invalid JSON input: ' + error.message;
+			resultDiv.classList.add("alert", "alert-danger")
+    }
+		// Clear form inputs
+		pipelineNameInput.value = '';
+		pipelineJsonInput.value = '';
+	});
+});
+
+</script>
+{{ end }}

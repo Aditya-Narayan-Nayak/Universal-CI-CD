@@ -1,0 +1,263 @@
+{{ define "scriptjs" }}
+<script>
+
+// Get the reference to the div element
+const outputHeading = document.getElementById('headerTitle')
+const responseDiv = document.getElementById('responseDiv');
+const statusBuild = document.getElementById('build_status');
+
+const buttonsContainer = document.getElementById('buttons-container');
+const additionalContentDiv = document.getElementById('additional-content');
+
+const buttonsList = document.getElementById('buttons-builds-list');
+const buttonsBuildContainer = document.getElementById('buttons-builds-container');
+
+let PipelineName = "";
+
+// Function to handle streaming response
+
+async function fetchListOfPipelines(pipeline) {
+	let buildNo;
+
+	try {
+		const requestOptions = {
+			method: 'GET',
+		};
+		const response = await fetch(`http://0.0.0.0:8080/api/build?name=${encodeURIComponent(pipeline)}`, requestOptions);
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+		}
+
+		buildNo = response.headers.get('Buildno');
+
+		const reader = response.body.getReader();
+
+		while (true) {
+			const { done, value } = await reader.read();
+
+			// Convert the streamed chunk (Uint8Array) to text
+			const chunkText = new TextDecoder().decode(value);
+
+			// Process the streamed data as needed
+			responseDiv.innerText += chunkText;
+
+			if (done) {
+				// Stream has ended
+				// Handle successful response
+				// statusBuild.innerText = "SUCCESS";
+				// statusBuild.classList.add("alert", "alert-success");
+				break;
+			}
+		}
+	} catch (error) {
+		statusBuild.innerText = "FAILED: "+error;
+		statusBuild.classList.add("alert", "alert-danger");
+	}
+
+	console.log(buildNo);
+
+	try {
+
+		// Create HTTP request using fetch
+		const response = await fetch(`http://0.0.0.0:8080/api/get?name=${encodeURIComponent(PipelineName)}&build=${encodeURIComponent(buildNo)}`, {
+			method: 'GET',
+		});
+
+		// Handle response
+		if (response.ok) {
+			const responseData = await response.json(); // Parse response as JSON
+
+			// Update statusBuild element with the desired information
+			statusBuild.textContent = `Build Number: ${responseData.BuildNo}, Status: ${responseData.Status}, Time Taken: ${responseData.TimeTaken}`;
+			if (responseData.Status === "SUCCESS") {
+				statusBuild.classList.add("alert", "alert-success");
+			} else {
+				statusBuild.classList.add("alert", "alert-danger");
+			}
+		} else {
+			statusBuild.textContent = 'Request failed with status ' + response.status;
+			statusBuild.classList.add("alert", "alert-danger");
+			// Handle error response
+		}
+} catch (error) {
+		statusBuild.textContent = 'Invalid JSON input: ' + error.message;
+		statusBuild.classList.add("alert", "alert-danger");
+	}
+}
+
+
+// script.js
+document.addEventListener('DOMContentLoaded', function () {
+
+	fetch('http://0.0.0.0:8080/api/list')
+		.then(response => response.json())
+	.then(data => {
+			// Assuming data is of type Workspaces { Folders: [] }
+
+			// Get the ordered list element
+			const buttonsList = document.getElementById('buttons-list');
+
+			// Iterate over the Folders array and create list items with buttons
+			data.Folders.forEach((folder, index) => {
+				// Create a list item element
+				const listItem = document.createElement('li');
+
+				// Create a button element
+				const button = document.createElement('button');
+				button.classList.add('btn', 'btn-primary');
+
+				// Set the button text to the folder name
+				button.textContent = folder;
+
+				// Set a unique id for each button (you can customize this as needed)
+				button.id = `button-${index}`;
+
+				// Append the button to the list item
+				listItem.appendChild(button);
+
+				// Append the list item to the ordered list
+				buttonsList.appendChild(listItem);
+			});
+		})
+		.catch(error => {
+			// Handle errors if any
+			console.log('Error:', error);
+	});
+});
+
+
+buttonsBuildContainer.addEventListener('click', async function (e) {
+	// additionalContentDiv.innerHTML = '';
+	if (event.target.tagName === 'BUTTON') {
+		getBuild = document.getElementById(event.target.id);
+		build = getBuild.textContent;
+
+		outputHeading.textContent = `Previous Build Output ${build}`
+		buttonsList.textContent = '';
+		try {
+
+			// Create HTTP request using fetch
+			const response = await fetch(`http://0.0.0.0:8080/api/get?name=${encodeURIComponent(PipelineName)}&build=${build}&detail=true`, {
+				method: 'GET',
+			});
+
+			// Handle response
+			if (response.ok) {
+				const responseData = await response.json(); // Parse response as JSON
+				const stdout = responseData.Stdout;
+				const stderr = responseData.Stderr;
+				// Access the properties of LogsBuild and MetadataBuild correctly
+				responseDiv.textContent = `\n\nStdout\n\n` + stdout;
+				responseDiv.textContent += `\n\n\nStderr\n\n` + stderr;
+
+				// Update statusBuild element with the desired information
+				statusBuild.textContent = `Build Number: ${responseData.Metadata.BuildNo}, Status: ${responseData.Metadata.Status}, Time Taken: ${responseData.Metadata.TimeTaken}`;
+				if (responseData.Metadata.Status === "SUCCESS") {
+					statusBuild.classList.add("alert", "alert-success");
+				} else {
+					statusBuild.classList.add("alert", "alert-danger");
+				}
+			} else {
+				statusBuild.textContent = 'Request failed with status ' + response.status;
+				statusBuild.classList.add("alert", "alert-danger");
+				// Handle error response
+			}
+	} catch (error) {
+			statusBuild.textContent = 'Invalid JSON input: ' + error.message;
+			statusBuild.classList.add("alert", "alert-danger");
+		}
+	}
+});
+
+
+// Attach a click event listener to the buttons container
+buttonsContainer.addEventListener('click', function (event) {
+	// Clear previous additional content
+	additionalContentDiv.innerHTML = '';
+
+	// Check if the clicked element is a button
+	if (event.target.tagName === 'BUTTON') {
+
+		// Create different elements based on the selected option
+		getPipelineName = document.getElementById(event.target.id);
+		PipelineName = getPipelineName.textContent;
+
+		heading = document.createElement('h2');
+		heading.textContent = PipelineName;
+		additionalContentDiv.appendChild(heading);
+
+
+		// Handle the first button click (for example, create a "Build Now" button)
+		const buildNowButton = document.createElement('button');
+		buildNowButton.textContent = 'Build Now';
+		buildNowButton.classList.add('btn', 'btn-outline-success');
+		buildNowButton.addEventListener('click', () => {
+
+			// Handle "Build Now" button click event if needed
+			outputHeading.textContent = "Build Output";
+			responseDiv.innerText = '';
+			statusBuild.innerText = '';
+			buttonsList.textContent = ''
+
+			fetchListOfPipelines(PipelineName);
+		});
+
+		additionalContentDiv.appendChild(buildNowButton);
+
+		// Handle the second button click (for example, create a "List of Builds" button)
+
+		const listOfBuildsButton = document.createElement('button');
+		listOfBuildsButton.textContent = 'List of Builds';
+		listOfBuildsButton.classList.add('btn', 'btn-outline-info');
+
+		listOfBuildsButton.addEventListener('click', () => {
+			// Handle "List of Builds" button click event if needed
+			outputHeading.textContent = "View Builds";
+			responseDiv.innerText = '';
+			statusBuild.innerText = '';
+			buttonsList.textContent = ''
+			statusBuild.classList.remove("alert", "alert-danger", "alert-success");
+
+			fetch(`http://0.0.0.0:8080/api/get?name=${encodeURIComponent(PipelineName)}`)
+				.then(response => response.json())
+				.then(data => {
+					// Assuming data is of type Workspaces { Builds: [] }
+
+					// Iterate over the Builds array and create list items with buttons
+					data.Builds.forEach((build, index) => {
+						// Create a list item element
+						const listItem = document.createElement('li');
+
+						// Create a button element
+						const button = document.createElement('button');
+						button.classList.add('btn', 'btn-info');
+
+						// Set the button text to the build name
+						button.textContent = build;
+
+						// Set a unique id for each button (you can customize this as needed)
+						button.id = `button-build-${index}`;
+
+						// Append the button to the list item
+						listItem.appendChild(button);
+
+						// Append the list item to the ordered list
+						buttonsList.appendChild(listItem);
+					});
+				})
+				.catch(error => {
+					// Handle errors if any
+					console.log('Error:', error);
+			});
+		});
+		additionalContentDiv.appendChild(listOfBuildsButton);
+
+		// Add more conditions for other buttons if needed
+	}
+});
+
+
+</script>
+{{ end }}

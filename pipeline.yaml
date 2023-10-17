@@ -1,0 +1,43 @@
+name: ksctl e2e
+agents:
+- any
+stages:
+- name: git changelog
+  jobs:
+  - script: |-
+      #!/bin/bash
+      go version || exit 1
+      if [ -d "ksctl" ]; then
+        cd ksctl
+        git pull origin main
+      else
+        git clone https://github.com/kubesimplify/ksctl.git
+      fi
+- name: Build Ksctl
+  jobs:
+  - script: |-
+      #!/bin/bash
+      cd ksctl
+      ls -la
+      cd cli
+      go build -v -o ksctlexec .
+      mv ksctlexec ../..
+      rm -rf ${HOME}/.ksctl
+      mkdir -p ${HOME}/.ksctl/cred
+      mkdir -p ${HOME}/.ksctl/config/civo/ha
+      mkdir -p ${HOME}/.ksctl/config/azure/ha
+      mkdir -p ${HOME}/.ksctl/config/aws/ha
+      mkdir -p ${HOME}/.ksctl/config/azure/managed
+      mkdir -p ${HOME}/.ksctl/config/civo/managed
+      mkdir -p ${HOME}/.ksctl/config/aws/managed
+      mkdir -p ${HOME}/.ksctl/config/local/managed
+- name: Ksctl version
+  jobs:
+  - script: |-
+      #!/bin/bash
+      ./ksctlexec version
+- name: Ksctl get
+  jobs:
+  - script: |-
+      #!/bin/bash
+      ./ksctlexec get
